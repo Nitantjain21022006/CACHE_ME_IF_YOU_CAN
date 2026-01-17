@@ -50,10 +50,7 @@ The platform expects a real stream of events to the `/api/events/ingest` endpoin
 
 ## 🔒 Security Posture
 - Email OTP verification required for all new accounts.
-
-##Build by Team **CACHE ME IF YOU CAN**
 - Password recovery via secure time-limited tokens.
 - No localStorage used; JWT handled via HTTP-only Cookies.
 
----
-*Built for PS-4 Hackathon Challenge.*
+##Build by Team **CACHE ME IF YOU CAN**

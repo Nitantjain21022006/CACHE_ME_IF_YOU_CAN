@@ -1,4 +1,4 @@
-# Cyber-Resilient Infrastructure Platform (Nitant Scope)
+# Cyber-Resilient Infrastructure Platform 
 
 A production-inspired security monitoring and resilience platform designed for critical sectors: **Healthcare**, **Agriculture**, and **Urban Systems**.
 
@@ -50,6 +50,8 @@ The platform expects a real stream of events to the `/api/events/ingest` endpoin
 
 ## 🔒 Security Posture
 - Email OTP verification required for all new accounts.
+
+##Build by Team **CACHE ME IF YOU CAN**
 - Password recovery via secure time-limited tokens.
 - No localStorage used; JWT handled via HTTP-only Cookies.
 

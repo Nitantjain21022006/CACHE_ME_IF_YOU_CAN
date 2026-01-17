@@ -53,4 +53,4 @@ The platform expects a real stream of events to the `/api/events/ingest` endpoin
 - Password recovery via secure time-limited tokens.
 - No localStorage used; JWT handled via HTTP-only Cookies.
 
-##Build by Team **CACHE ME IF YOU CAN**
+## Build by Team **CACHE ME IF YOU CAN**

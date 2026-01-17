@@ -1,0 +1,23 @@
+export const ROLES = {
+    ADMIN: 'ADMIN',
+    ANALYST: 'ANALYST',
+    SECTOR_OWNER: 'SECTOR_OWNER'
+};
+
+export const SEVERITY = {
+    LOW: 'LOW',
+    MEDIUM: 'MEDIUM',
+    HIGH: 'HIGH'
+};
+
+export const SECTORS = {
+    HEALTHCARE: 'HEALTHCARE',
+    AGRICULTURE: 'AGRICULTURE',
+    URBAN: 'URBAN'
+};
+
+export const RESPONSE_ACTIONS = {
+    BLOCK_IP: 'BLOCK_IP',
+    DISABLE_USER: 'DISABLE_USER',
+    NOTIFY_ADMIN: 'NOTIFY_ADMIN'
+};

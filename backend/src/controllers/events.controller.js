@@ -1,0 +1,53 @@
+import * as eventProcessor from '../services/eventProcessor.service.js';
+import supabase from '../utils/supabaseClient.js';
+
+export const ingestEvent = async (req, res) => {
+    const { sector, type, severity, metadata } = req.body;
+
+    if (!sector || !type) {
+        return res.status(400).json({
+            success: false,
+            message: 'Missing required event fields: sector, type'
+        });
+    }
+
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
+    const enhancedMetadata = { ...metadata, ip };
+
+    const result = await eventProcessor.processEvent({
+        sector,
+        type,
+        severity,
+        metadata: enhancedMetadata
+    });
+
+    if (result.success) {
+        res.status(201).json({
+            success: true,
+            message: 'Event ingested and processed',
+            eventId: result.eventId
+        });
+    } else {
+        res.status(500).json({
+            success: false,
+            message: 'Failed to process event',
+            error: result.error
+        });
+    }
+};
+
+export const getEventStats = async (req, res) => {
+    try {
+        // Fetch last 24h count from Supabase
+        const { count, error } = await supabase
+            .from('events')
+            .select('*', { count: 'exact', head: true })
+            .gt('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+
+        if (error) throw error;
+
+        res.json({ success: true, count });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};

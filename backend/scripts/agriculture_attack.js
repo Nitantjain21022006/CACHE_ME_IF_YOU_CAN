@@ -17,7 +17,18 @@ async function runAttack() {
                     sensor_id: `IRRIG_SYS_0${i % 3}`,
                     value: 85 + Math.random() * 20,
                     unit: 'PSI',
-                    ip: ip
+                    ip: ip,
+                    location_id: 202,
+                    protocol: 'UDP',
+                    packet_size: 1200,   // Elevated
+                    latency_ms: 450,     // Elevated (Anomalous)
+                    cpu_usage_percent: 65,
+                    memory_usage_percent: 70,
+                    battery_level: 45,
+                    temperature_c: 32,
+                    connection_status: 'Connected',
+                    operation_type: 'Write',
+                    data_value_integrity: 1
                 }
             });
             console.log(`[${i + 1}/${NUM_EVENTS}] Sent burst event from ${ip}`);

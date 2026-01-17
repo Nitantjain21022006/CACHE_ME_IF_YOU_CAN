@@ -18,7 +18,12 @@ import Layout from './components/Layout';
 const ProtectedRoute = ({ children, allowedRoles }) => {
     const { user, loading } = useAuth();
 
-    if (loading) return <div className="flex h-screen items-center justify-center bg-background text-white">Loading...</div>;
+    if (loading) return (
+        <div className="flex h-screen flex-col items-center justify-center bg-[#020204] text-[#00f3ff] cyber-grid">
+            <div className="mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-[#00f3ff]" />
+            <span className="text-[10px] font-black uppercase tracking-[0.4em] animate-pulse">Initializing Neural Link...</span>
+        </div>
+    );
     if (!user) return <Navigate to="/login" />;
     if (allowedRoles && !allowedRoles.includes(user.role)) return <Navigate to="/" />;
 

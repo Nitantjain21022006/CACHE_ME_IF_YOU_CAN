@@ -50,65 +50,63 @@ export const processEvent = async (event) => {
             console.error('[Processor] Redis Error (Non-blocking):', redisErr);
         }
 
-        // 3. Aggregate Metrics for the last 60 seconds
-        console.log(`[Processor] Step 3: Aggregating 60s metrics...`);
-        const oneMinuteAgo = timestamp - 60 * 1000;
-        const recentEventsRaw = await redisClient.zRange(windowKey, oneMinuteAgo, timestamp, { BY: 'SCORE' });
-        const recentEvents = recentEventsRaw.map(e => {
-            try {
-                return JSON.parse(e);
-            } catch (err) {
-                console.warn('[Processor] Skipping malformed Redis event:', e);
-                return null;
-            }
-        }).filter(Boolean);
-
-        const event_rate = recentEvents.length;
-        const failed_logins = recentEvents.filter(e => e.type === 'LOGIN_FAILED').length;
-        const unique_ips = new Set(recentEvents.map(e => e.ip)).size;
-
-        let avg_request_interval_ms = 1000;
-        if (recentEvents.length > 1) {
-            const intervals = [];
-            for (let i = 1; i < recentEvents.length; i++) {
-                intervals.push(recentEvents[i].timestamp - recentEvents[i - 1].timestamp);
-            }
-            avg_request_interval_ms = intervals.reduce((a, b) => a + b, 0) / intervals.length;
-        }
-
-        const error_count = recentEvents.filter(e =>
-            e.severity === 'HIGH' ||
-            e.type.includes('ERROR') ||
-            e.type.includes('FAILED')
-        ).length;
-        const error_rate = event_rate > 0 ? error_count / event_rate : 0;
-
-        const aggregatedMetrics = {
-            event_rate,
-            failed_logins,
-            unique_ips,
-            avg_request_interval_ms,
-            error_rate
+        // 3. Extract High-Fidelity Metrics from Metadata (Prioritize individual event features)
+        console.log(`[Processor] Step 3: Extracting high-fidelity metrics...`);
+        const highFidelityMetrics = {
+            device_id: metadata?.device_id || 0,
+            location_id: metadata?.location_id || 0,
+            ip_src: metadata?.ip_src || 0,
+            ip_dest: metadata?.ip_dest || 0,
+            protocol: metadata?.protocol || 'TCP',
+            packet_size: metadata?.packet_size || 500,
+            latency_ms: metadata?.latency_ms || 50,
+            cpu_usage_percent: metadata?.cpu_usage_percent || 30,
+            memory_usage_percent: metadata?.memory_usage_percent || 40,
+            battery_level: metadata?.battery_level || 80,
+            temperature_c: metadata?.temperature_c || 25,
+            connection_status: metadata?.connection_status || 'Connected',
+            operation_type: metadata?.operation_type || 'Read',
+            data_value_integrity: metadata?.data_value_integrity ?? 1,
+            is_anomaly: metadata?.is_anomaly || 0
         };
 
-        console.log(`[Processor] Step 4: Calling ML Service with:`, aggregatedMetrics);
-        const analysis = await analyzeMetrics(sector, aggregatedMetrics);
-        console.log(`[Processor] ML Result: is_anomaly=${analysis.is_anomaly}, severity=${analysis.severity}`);
+        // Also aggregate window metrics for additional context (optional, but good for logs)
+        const oneMinuteAgo = timestamp - 60 * 1000;
+        const recentEventsRaw = await redisClient.zRange(windowKey, oneMinuteAgo, timestamp, { BY: 'SCORE' });
 
-        // 5. If Anomaly, create an alert
-        if (analysis.is_anomaly) {
-            console.log(`[Processor] Step 5: Creating alert in Supabase...`);
+        let uniqueIps = 0;
+        try {
+            uniqueIps = new Set(recentEventsRaw.map(e => {
+                try { return JSON.parse(e).ip; } catch { return null; }
+            }).filter(Boolean)).size;
+        } catch (e) {
+            console.warn('[Processor] Context aggregation failed:', e.message);
+        }
+
+        const contextMetrics = {
+            event_rate_60s: recentEventsRaw.length,
+            unique_ips_60s: uniqueIps
+        };
+
+        console.log(`[Processor] Step 4: Calling ML Service with high-fidelity data...`);
+        const analysis = await analyzeMetrics(sector, highFidelityMetrics);
+        console.log(`[Processor] ML Result: is_anomaly=${analysis.is_anomaly}, attack=${analysis.attack_type}, severity=${analysis.severity}`);
+
+        // 5. If Anomaly or Attack Detected, create an alert
+        if (analysis.is_anomaly || analysis.attack_type !== 'Normal') {
+            console.log(`[Processor] Step 5: Creating high-fidelity alert...`);
             try {
                 const alertResult = await createAlert({
                     sector,
-                    type: `ML_ANOMALY_${type}`,
+                    type: analysis.attack_type !== 'Normal' ? `ML_${analysis.attack_type.toUpperCase()}` : `ML_ANOMALY_${type}`,
                     severity: (analysis.severity || 'HIGH').toUpperCase(),
-                    score: parseFloat(analysis.score || 0),
+                    score: parseFloat(analysis.confidence || 0),
                     confidence: parseFloat(analysis.confidence || 0),
                     explanation: analysis.explanation,
                     metadata: {
                         ...metadata,
-                        metrics: aggregatedMetrics,
+                        metrics: highFidelityMetrics,
+                        context: contextMetrics,
                         ml_response: analysis
                     }
                 });
@@ -123,7 +121,7 @@ export const processEvent = async (event) => {
             success: true,
             eventId: data?.[0]?.id || null,
             analysis: analysis || null,
-            metrics: aggregatedMetrics || null
+            metrics: highFidelityMetrics || null
         };
     } catch (error) {
         console.error('CRITICAL: Event Processing System Error:', error);

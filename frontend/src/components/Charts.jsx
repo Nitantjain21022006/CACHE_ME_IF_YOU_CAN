@@ -30,7 +30,8 @@ export const EventThroughputChart = ({ data }) => (
             <YAxis stroke="#6b7280" fontSize={12} tickLine={false} axisLine={false} />
             <Tooltip
                 contentStyle={{ background: '#0a0a0a', border: '1px solid #1f2937', borderRadius: '8px' }}
-                itemStyle={{ color: '#3b82f6' }}
+                itemStyle={{ color: '#fff' }}
+                labelStyle={{ color: '#fff' }}
             />
             <Area type="monotone" dataKey="value" stroke="#3b82f6" fillOpacity={1} fill="url(#colorValue)" />
         </AreaChart>
@@ -57,6 +58,8 @@ export const SeverityDistributionChart = ({ data }) => {
                 </Pie>
                 <Tooltip
                     contentStyle={{ background: '#0a0a0a', border: '1px solid #1f2937', borderRadius: '8px' }}
+                    itemStyle={{ color: '#fff' }}
+                    labelStyle={{ color: '#fff' }}
                 />
             </PieChart>
         </ResponsiveContainer>

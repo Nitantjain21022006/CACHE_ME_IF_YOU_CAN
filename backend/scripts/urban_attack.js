@@ -18,7 +18,18 @@ async function runAttack() {
                     system_target: 'TRAFFIC_CONTROL_UNIT_7',
                     attempt_type: 'FIRMWARE_PATCH',
                     priority: 'CRITICAL',
-                    ip: ip
+                    ip: ip,
+                    location_id: 303,
+                    protocol: 'HTTPS',
+                    packet_size: 2500,   // Critical (Anomalous)
+                    latency_ms: 15,      // Stealthy low latency
+                    cpu_usage_percent: 88, // High (Anomalous)
+                    memory_usage_percent: 92, // High (Anomalous)
+                    battery_level: 60,
+                    temperature_c: 45,   // Elevated
+                    connection_status: 'Disconnected', // Hostile state
+                    operation_type: 'Write',
+                    data_value_integrity: 0 // Compromised (Anomalous)
                 }
             });
             console.log(`[${i + 1}/${NUM_EVENTS}] Sent rapid event from ${ip}`);

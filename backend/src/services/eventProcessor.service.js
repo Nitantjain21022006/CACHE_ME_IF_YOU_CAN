@@ -55,6 +55,7 @@ export const processEvent = async (event) => {
         const highFidelityMetrics = {
             device_id: metadata?.device_id || 0,
             location_id: metadata?.location_id || 0,
+            ip: metadata?.ip || ip,
             ip_src: metadata?.ip_src || 0,
             ip_dest: metadata?.ip_dest || 0,
             protocol: metadata?.protocol || 'TCP',
@@ -67,7 +68,8 @@ export const processEvent = async (event) => {
             connection_status: metadata?.connection_status || 'Connected',
             operation_type: metadata?.operation_type || 'Read',
             data_value_integrity: metadata?.data_value_integrity ?? 1,
-            is_anomaly: metadata?.is_anomaly || 0
+            is_anomaly: metadata?.is_anomaly || 0,
+            event_type: type // Pass event type for hardcoded pattern matching
         };
 
         // Also aggregate window metrics for additional context (optional, but good for logs)
@@ -145,23 +147,27 @@ export const processEvent = async (event) => {
             }
         }
 
-        // 6. If Anomaly or Attack Detected, create an alert
-        if (analysis.is_anomaly || analysis.attack_type !== 'Normal' || finalSeverity !== 'LOW') {
-            console.log(`[Processor] Step 6: Creating escalated alert... Severity: ${finalSeverity} (Rate: ${eventRate})`);
+        // 6. If Anomaly or Attack Detected, create an alert (including Normal for display)
+        if (analysis.is_anomaly || analysis.attack_type !== 'Normal' || finalSeverity !== 'LOW' || analysis.attack_type === 'Normal') {
+            // For Normal attack type, set severity to NULL (not a threat)
+            const alertSeverity = analysis.attack_type === 'Normal' ? null : finalSeverity;
+            const alertType = analysis.attack_type !== 'Normal' ? `ML_${analysis.attack_type.toUpperCase()}` : `ML_NORMAL`;
+            
+            console.log(`[Processor] Step 6: Creating alert... Type: ${alertType}, Severity: ${alertSeverity || 'NULL'} (Rate: ${eventRate})`);
             try {
                 const alertResult = await createAlert({
                     sector,
-                    type: analysis.attack_type !== 'Normal' ? `ML_${analysis.attack_type.toUpperCase()}` : `ML_ANOMALY_${type}`,
-                    severity: finalSeverity,
+                    type: alertType,
+                    severity: alertSeverity,
                     score: parseFloat(analysis.confidence || 0),
                     confidence: parseFloat(analysis.confidence || 0),
-                    explanation: analysis.explanation + escalationReason + (finalSeverity !== (analysis.severity || 'LOW').toUpperCase() && !escalationReason ? ` [FREQUENCY ESCALATION: ${eventRate} events/min]` : ''),
+                    explanation: analysis.explanation + escalationReason + (finalSeverity !== (analysis.severity || 'LOW').toUpperCase() && !escalationReason && alertSeverity !== null ? ` [FREQUENCY ESCALATION: ${eventRate} events/min]` : ''),
                     metadata: {
                         ...metadata,
                         metrics: highFidelityMetrics,
                         context: contextMetrics,
                         ml_response: analysis,
-                        escalated: finalSeverity !== (analysis.severity || 'LOW').toUpperCase()
+                        escalated: alertSeverity !== null && finalSeverity !== (analysis.severity || 'LOW').toUpperCase()
                     }
                 });
                 console.log(`[Processor] Alert creation result:`, alertResult.success ? 'Success' : 'Failed');

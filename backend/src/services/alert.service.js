@@ -28,14 +28,15 @@ const autoResolveAlert = async (alertId, severity) => {
 
 export const createAlert = async (alertData) => {
     const { sector, type, severity, score, explanation, metadata } = alertData;
-    const normalizedSeverity = severity?.toUpperCase() || 'LOW';
+    // If severity is null (Normal attack type), keep it as null; otherwise normalize
+    const normalizedSeverity = severity === null ? null : (severity?.toUpperCase() || 'LOW');
 
     try {
         // All alerts start as ACTIVE (LIVE_THREAT) so they appear in dashboard
         const insertData = {
             sector,
             type,
-            severity: normalizedSeverity,
+            severity: normalizedSeverity, // Can be NULL for Normal attack type
             score,
             explanation,
             metadata,
@@ -55,8 +56,8 @@ export const createAlert = async (alertData) => {
 
         const alert = data?.[0] || alertData;
 
-        // Schedule auto-resolution for LOW and MEDIUM alerts
-        const shouldAutoResolve = normalizedSeverity === 'LOW' || normalizedSeverity === 'MEDIUM';
+        // Schedule auto-resolution for LOW and MEDIUM alerts (skip if severity is NULL)
+        const shouldAutoResolve = normalizedSeverity && (normalizedSeverity === 'LOW' || normalizedSeverity === 'MEDIUM');
         if (shouldAutoResolve) {
             // LOW: 5 seconds, MEDIUM: 10 seconds
             const delayMs = normalizedSeverity === 'LOW' ? 5000 : 10000;

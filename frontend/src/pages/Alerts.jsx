@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Filter, AlertTriangle, Eye, CheckCircle, ChevronDown } from 'lucide-react';
+import { Search, Filter, AlertTriangle, Eye, CheckCircle, ChevronDown, ChevronUp, Info, Shield } from 'lucide-react';
 import api from '../api/axiosInstance';
 import SeverityBadge from '../components/SeverityBadge';
+import IPPatternBadge from '../components/IPPatternBadge';
+import AlertReasonPanel from '../components/AlertReasonPanel';
 
 const Alerts = () => {
     const [alerts, setAlerts] = useState([]);
@@ -10,6 +12,7 @@ const Alerts = () => {
     const [filterSector, setFilterSector] = useState('');
     const [filterSeverity, setFilterSeverity] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
+    const [expandedAlerts, setExpandedAlerts] = useState(new Set());
     const alertsPerPage = 10;
 
     useEffect(() => {
@@ -48,11 +51,69 @@ const Alerts = () => {
         }
     };
 
-    // Pagination Logic
+    // Aggregation Logic - Group similar alerts by type, sector, and severity
+    const aggregatedAlerts = useMemo(() => {
+        const groups = {};
+        const now = Date.now();
+        const sixtySecondsAgo = now - 60 * 1000;
+
+        alerts.forEach(alert => {
+            const alertTime = new Date(alert.created_at).getTime();
+            const key = `${alert.type}_${alert.sector}_${alert.severity || 'NULL'}`;
+            
+            if (!groups[key]) {
+                groups[key] = {
+                    key,
+                    type: alert.type,
+                    sector: alert.sector,
+                    severity: alert.severity,
+                    alerts: [],
+                    count: 0,
+                    latestAlert: alert,
+                    minCreated: alertTime,
+                    maxCreated: alertTime
+                };
+            }
+            
+            groups[key].alerts.push(alert);
+            groups[key].count++;
+            
+            // Check if this alert is within last 60s
+            if (alertTime >= sixtySecondsAgo) {
+                groups[key].recentCount = (groups[key].recentCount || 0) + 1;
+            }
+            
+            if (alertTime > groups[key].maxCreated) {
+                groups[key].maxCreated = alertTime;
+                groups[key].latestAlert = alert;
+            }
+            if (alertTime < groups[key].minCreated) {
+                groups[key].minCreated = alertTime;
+            }
+        });
+
+        return Object.values(groups).sort((a, b) => b.maxCreated - a.maxCreated);
+    }, [alerts]);
+
+    // Near-Miss Detection - Alerts that were anomalous but LOW severity
+    const nearMisses = useMemo(() => {
+        return alerts.filter(alert => {
+            const mlResponse = alert.metadata?.ml_response;
+            const context = alert.metadata?.context || {};
+            const isAnomalous = mlResponse?.is_anomalous || false;
+            const severity = alert.severity;
+            const eventRate = context.event_rate_60s || 0;
+            
+            // Near-miss: Anomalous but LOW severity, or event rate close to threshold
+            return (isAnomalous && severity === 'LOW') || (severity === 'LOW' && eventRate >= 2 && eventRate < 4);
+        }).slice(0, 5); // Show top 5 near-misses
+    }, [alerts]);
+
+    // Pagination Logic for aggregated alerts
     const indexOfLastAlert = currentPage * alertsPerPage;
     const indexOfFirstAlert = indexOfLastAlert - alertsPerPage;
-    const currentAlerts = alerts.slice(indexOfFirstAlert, indexOfLastAlert);
-    const totalPages = Math.ceil(alerts.length / alertsPerPage);
+    const currentAlerts = aggregatedAlerts.slice(indexOfFirstAlert, indexOfLastAlert);
+    const totalPages = Math.ceil(aggregatedAlerts.length / alertsPerPage);
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -115,70 +176,119 @@ const Alerts = () => {
                         <p className="mt-2 text-[10px] text-gray-500 font-bold uppercase tracking-[0.3em]">No critical anomalies detected in current cycle</p>
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm border-collapse">
-                            <thead>
-                                <tr className="bg-black/40 text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">
-                                    <th className="px-8 py-5">Anomaly Classification</th>
-                                    <th className="px-8 py-5">Origin Vector</th>
-                                    <th className="px-8 py-5">Threat Magnitude</th>
-                                    <th className="px-8 py-5">Operational State</th>
-                                    <th className="px-8 py-5">Timestamp</th>
-                                    <th className="px-8 py-5 text-right">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-white/5">
-                                {currentAlerts.map((alert) => (
-                                    <tr key={alert.id} className="hover:bg-[#00f3ff]/5 transition-all group border-l-2 border-transparent hover:border-l-[#00f3ff]">
-                                        <td className="px-8 py-6">
-                                            <div className="flex items-center gap-3">
-                                                <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-black/60 border border-white/5 ${alert.severity === 'HIGH' ? 'text-[#ff003c] shadow-[0_0_15px_rgba(255,0,60,0.1)]' : 'text-[#ff9900]'
-                                                    }`}>
-                                                    <AlertTriangle size={18} className={alert.severity === 'HIGH' ? 'animate-pulse' : ''} />
+                    <div className="space-y-4 p-8">
+                        {/* Aggregated Alert Cards */}
+                        {currentAlerts.map((group) => {
+                            const isExpanded = expandedAlerts.has(group.key);
+                            const latestAlert = group.latestAlert;
+                            
+                            return (
+                                <div 
+                                    key={group.key} 
+                                    className="glass rounded-2xl border-[#00f3ff]/5 overflow-hidden hover:border-[#00f3ff]/20 transition-all"
+                                >
+                                    <div className="p-6">
+                                        <div className="flex items-start justify-between mb-4">
+                                            <div className="flex-1">
+                                                <div className="flex items-center gap-3 mb-2">
+                                                    <div className={`flex h-12 w-12 items-center justify-center rounded-xl bg-black/60 border border-white/5 ${latestAlert.severity === 'HIGH' ? 'text-[#ff003c] shadow-[0_0_15px_rgba(255,0,60,0.1)]' : latestAlert.severity === 'MEDIUM' ? 'text-[#ff9900]' : 'text-gray-500'
+                                                        }`}>
+                                                        <AlertTriangle size={20} className={latestAlert.severity === 'HIGH' ? 'animate-pulse' : ''} />
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center gap-3 mb-1">
+                                                            <span className="font-black text-white uppercase italic tracking-wider text-lg">{group.type}</span>
+                                                            {group.count > 1 && (
+                                                                <span className="px-2.5 py-0.5 rounded-full bg-[#00f3ff]/10 text-[#00f3ff] text-[9px] font-black uppercase border border-[#00f3ff]/20">
+                                                                    Aggregated from {group.count} events
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex items-center gap-4 flex-wrap">
+                                                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{group.sector}</span>
+                                                            <SeverityBadge severity={group.severity} />
+                                                            <IPPatternBadge alert={latestAlert} />
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                <div className="flex flex-col">
-                                                    <span className="font-black text-white uppercase italic tracking-wider group-hover:neon-text-blue transition-all">{alert.type}</span>
-                                                    <span className="text-[9px] text-gray-600 font-bold uppercase tracking-tighter">ID: {alert.id.slice(0, 8)}</span>
+                                                
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                                                    <div className="flex items-center gap-2 text-[10px] text-gray-500">
+                                                        <span className="font-black">Confidence:</span>
+                                                        <span className="text-white font-mono">{(latestAlert.confidence || latestAlert.score || 0).toFixed(2)}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 text-[10px] text-gray-500">
+                                                        <span className="font-black">Latest:</span>
+                                                        <span className="text-gray-400">{new Date(latestAlert.created_at).toLocaleString()}</span>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </td>
-                                        <td className="px-8 py-6">
-                                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{alert.sector}</span>
-                                        </td>
-                                        <td className="px-8 py-6">
-                                            <SeverityBadge severity={alert.severity} />
-                                        </td>
-                                        <td className="px-8 py-6">
+                                            
                                             <div className="flex items-center gap-2">
-                                                <div className={`h-1.5 w-1.5 rounded-full ${alert.status === 'ACTIVE' ? 'bg-[#ff003c] animate-ping' : 'bg-gray-700'}`} />
-                                                <span className={`text-[9px] font-black uppercase tracking-[0.2em] ${alert.status === 'ACTIVE' ? 'text-[#ff003c]' : 'text-gray-600'}`}>
-                                                    {alert.status === 'ACTIVE' ? 'LIVE THREAT' : 'RESOLVED'}
-                                                </span>
+                                                <Link
+                                                    to={`/alerts/${latestAlert.id}`}
+                                                    className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-gray-500 hover:bg-[#00f3ff]/10 hover:text-[#00f3ff] border border-white/5 transition-all"
+                                                >
+                                                    <Eye size={18} />
+                                                </Link>
+                                                {group.count > 1 && (
+                                                    <button
+                                                        onClick={() => {
+                                                            const newExpanded = new Set(expandedAlerts);
+                                                            if (isExpanded) {
+                                                                newExpanded.delete(group.key);
+                                                            } else {
+                                                                newExpanded.add(group.key);
+                                                            }
+                                                            setExpandedAlerts(newExpanded);
+                                                        }}
+                                                        className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-gray-500 hover:bg-white/10 border border-white/5 transition-all"
+                                                    >
+                                                        {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                                                    </button>
+                                                )}
                                             </div>
-                                        </td>
-                                        <td className="px-8 py-6 text-[10px] font-mono font-bold text-gray-500 uppercase tracking-tighter">
-                                            [{new Date(alert.created_at).toLocaleString()}]
-                                        </td>
-                                        <td className="px-8 py-6 text-right">
-                                            <Link
-                                                to={`/alerts/${alert.id}`}
-                                                className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-gray-500 hover:bg-[#00f3ff]/10 hover:text-[#00f3ff] hover:border-[#00f3ff]/30 border border-white/5 transition-all group/btn shadow-inner"
-                                            >
-                                                <Eye size={18} className="group-hover/btn:scale-110 transition-transform" />
-                                            </Link>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                        </div>
+                                        
+                                        {/* Alert Reason Panel */}
+                                        <div className="mt-4 pt-4 border-t border-white/5">
+                                            <AlertReasonPanel alert={latestAlert} />
+                                        </div>
+                                        
+                                        {/* Expanded suppressed events */}
+                                        {isExpanded && group.count > 1 && (
+                                            <div className="mt-4 pt-4 border-t border-white/5">
+                                                <div className="text-[9px] font-black text-gray-600 uppercase tracking-widest mb-3">
+                                                    Suppressed Events ({group.count - 1} similar in last 60s)
+                                                </div>
+                                                <div className="space-y-2 max-h-48 overflow-y-auto">
+                                                    {group.alerts.slice(1).map((suppressedAlert, idx) => (
+                                                        <div key={suppressedAlert.id} className="flex items-center justify-between p-2 rounded-lg bg-black/30 border border-white/5 text-[9px]">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="h-1 w-1 rounded-full bg-gray-600" />
+                                                                <span className="text-gray-500">ID: {suppressedAlert.id.slice(0, 8)}</span>
+                                                                <span className="text-gray-600">•</span>
+                                                                <span className="text-gray-400">{new Date(suppressedAlert.created_at).toLocaleTimeString()}</span>
+                                                            </div>
+                                                            <span className="text-gray-600 italic">Suppressed (pattern match)</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
 
                 {/* Pagination Controls */}
-                {!loading && alerts.length > 0 && (
+                {!loading && aggregatedAlerts.length > 0 && (
                     <div className="flex items-center justify-between px-8 py-6 bg-black/40 border-t border-white/5">
                         <div className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">
-                            Displaying {indexOfFirstAlert + 1}-{Math.min(indexOfLastAlert, alerts.length)} OF {alerts.length} Records
+                            Displaying {indexOfFirstAlert + 1}-{Math.min(indexOfLastAlert, aggregatedAlerts.length)} OF {aggregatedAlerts.length} Aggregated Alerts
+                            <span className="ml-4 text-gray-600">({alerts.length} total events processed)</span>
                         </div>
                         <div className="flex items-center gap-3">
                             <button
@@ -208,6 +318,54 @@ const Alerts = () => {
                         </div>
                     </div>
                 )}
+            </div>
+
+            {/* Near-Miss / Watchlist Section */}
+            {nearMisses.length > 0 && (
+                <div className="glass rounded-3xl p-8 border-[#ff9900]/20">
+                    <div className="flex items-center gap-3 mb-6">
+                        <Shield size={20} className="text-[#ff9900]" />
+                        <div>
+                            <h3 className="text-sm font-black text-white uppercase tracking-widest italic">Near-Escalation Watchlist</h3>
+                            <p className="text-[10px] text-gray-500 uppercase font-bold tracking-tighter mt-1">False-negative awareness monitoring</p>
+                        </div>
+                    </div>
+                    <div className="space-y-3">
+                        {nearMisses.map((alert) => {
+                            const context = alert.metadata?.context || {};
+                            const eventRate = context.event_rate_60s || 0;
+                            return (
+                                <div key={alert.id} className="flex items-center justify-between p-4 rounded-xl bg-black/30 border border-[#ff9900]/10">
+                                    <div className="flex items-center gap-4">
+                                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#ff9900]/10 text-[#ff9900] border border-[#ff9900]/20">
+                                            <Info size={16} />
+                                        </div>
+                                        <div>
+                                            <div className="font-black text-white text-sm uppercase tracking-wider">{alert.type}</div>
+                                            <div className="text-[9px] text-gray-500 mt-1">
+                                                {alert.sector} • Event Rate: {eventRate}/min • Anomalous but LOW severity
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="text-[9px] text-[#ff9900] font-black uppercase italic px-3 py-1.5 rounded-lg bg-[#ff9900]/10 border border-[#ff9900]/20">
+                                        Would escalate if activity persists
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {/* Footer Note */}
+            <div className="glass rounded-xl p-6 border-white/5 bg-black/20">
+                <div className="flex items-start gap-3">
+                    <Info size={16} className="text-gray-600 mt-0.5" />
+                    <div className="text-[10px] text-gray-600 leading-relaxed">
+                        <span className="font-black uppercase tracking-wider">Note:</span> Alerts represent confirmed risk patterns, not individual anomalies. 
+                        Events are aggregated by type, sector, and severity to minimize false positives and focus on actionable threats.
+                    </div>
+                </div>
             </div>
         </div>
     );

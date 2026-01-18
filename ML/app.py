@@ -58,12 +58,17 @@ def analyze():
         # Convert to DataFrame
         df = pd.DataFrame([input_data])
 
-        # Encode categorical columns
-        for col in ["device_id", "sector", "protocol", "operation_type"]:
-            df[col] = safe_encode(label_encoders[col], df[col][0])
+        # Encode categorical columns dynamically based on available encoders
+        for col in df.columns:
+            if col in label_encoders:
+                df[col] = safe_encode(label_encoders[col], df[col][0])
 
-        # Drop non-model columns
-        X = df.drop(["timestamp", "ip_src", "ip_dest"], axis=1)
+        # Drop non-model columns (metadata/system fields)
+        X = df.drop(["timestamp", "ip_src", "ip_dest", "ip"], axis=1, errors='ignore')
+        
+        # Ensure all columns are numerical (categorical should have been encoded)
+        print(f"[ML app] Columns received: {df.columns.tolist()}")
+        print(f"[ML app] Features for prediction: {X.columns.tolist()}")
 
         # Scale features
         X_scaled = scaler.transform(X)

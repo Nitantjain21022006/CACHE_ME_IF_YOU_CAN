@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const API_URL = 'http://localhost:5001/api/events/ingest';
 const SECTOR = 'agriculture';
-const NUM_EVENTS = 15; // Medium volume (Burst)
+const NUM_EVENTS = 30 // Medium volume (Burst)
 
 async function runAttack() {
     console.log(`🚀 Starting BURST Sensor Spike Simulation on ${SECTOR} (Target: MEDIUM Severity)...`);
@@ -28,7 +28,7 @@ async function runAttack() {
                     temperature_c: 32,
                     connection_status: 'Connected',
                     operation_type: 'Write',
-                    data_value_integrity: 1
+                    data_value_integrity: 0
                 }
             });
             console.log(`[${i + 1}/${NUM_EVENTS}] Sent burst event from ${ip}`);

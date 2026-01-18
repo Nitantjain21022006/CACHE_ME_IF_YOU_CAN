@@ -92,22 +92,76 @@ export const processEvent = async (event) => {
         const analysis = await analyzeMetrics(sector, highFidelityMetrics);
         console.log(`[Processor] ML Result: is_anomaly=${analysis.is_anomaly}, attack=${analysis.attack_type}, severity=${analysis.severity}`);
 
-        // 5. If Anomaly or Attack Detected, create an alert
-        if (analysis.is_anomaly || analysis.attack_type !== 'Normal') {
-            console.log(`[Processor] Step 5: Creating high-fidelity alert...`);
+        // 5. Severity Escalation Layer (Fixing Temporal Blindness)
+        let finalSeverity = (analysis.severity || 'LOW').toUpperCase();
+        const eventRate = contextMetrics.event_rate_60s || 0;
+        const currentUniqueIps = contextMetrics.unique_ips_60s || 0;
+        let escalationReason = '';
+
+        // --- Sector-Specific Refinement: AGRICULTURE ---
+        if (sector === 'AGRICULTURE') {
+            const { latency_ms, packet_size, battery_level, data_value_integrity } = highFidelityMetrics;
+
+            // Trigger HIGH: Critical Malicious Signals
+            if (eventRate >= 30 || data_value_integrity === 0 || latency_ms >= 800) {
+                if (finalSeverity !== 'HIGH') {
+                    finalSeverity = 'HIGH';
+                    escalationReason = ` [AGRICULTURE_CRITICAL: ${data_value_integrity === 0 ? 'INTEGRITY_FAILURE' : 'HIGH_FREQUENCY_BURST'}]`;
+                }
+            }
+            // Trigger MEDIUM: Operational Instability Signals
+            else if (eventRate >= 15 || latency_ms >= 400 || packet_size >= 1000 || battery_level < 50) {
+                if (finalSeverity === 'LOW') {
+                    finalSeverity = 'MEDIUM';
+                    escalationReason = ' [AGRICULTURE_STRESS: SENSOR_INSTABILITY_DETECTED]';
+                }
+            }
+        }
+        // --- Sector-Specific Refinement: URBAN ---
+        else if (sector === 'URBAN') {
+            const { operation_type, data_value_integrity, connection_status } = highFidelityMetrics;
+
+            // Trigger HIGH: Active Infrastructure Compromise
+            if (eventRate >= 40 && currentUniqueIps >= 5 && data_value_integrity === 0 && operation_type === 'Write') {
+                if (finalSeverity !== 'HIGH') {
+                    finalSeverity = 'HIGH';
+                    escalationReason = ' [URBAN_CRITICAL: COORDINATED_OVERRIDE_ATTEMPT]';
+                }
+            }
+            // Trigger MEDIUM: Suspicious Activity
+            else if (eventRate >= 10 && currentUniqueIps >= 2 && operation_type === 'Write') {
+                if (finalSeverity === 'LOW') {
+                    finalSeverity = 'MEDIUM';
+                    escalationReason = ' [URBAN_STRESS: MULTI_IP_WRITE_BURST]';
+                }
+            }
+        }
+        // --- Generic Escalation (Other Sectors) ---
+        else {
+            if (eventRate > 10) {
+                finalSeverity = 'HIGH';
+            } else if (eventRate > 3) {
+                if (finalSeverity === 'LOW') finalSeverity = 'MEDIUM';
+            }
+        }
+
+        // 6. If Anomaly or Attack Detected, create an alert
+        if (analysis.is_anomaly || analysis.attack_type !== 'Normal' || finalSeverity !== 'LOW') {
+            console.log(`[Processor] Step 6: Creating escalated alert... Severity: ${finalSeverity} (Rate: ${eventRate})`);
             try {
                 const alertResult = await createAlert({
                     sector,
                     type: analysis.attack_type !== 'Normal' ? `ML_${analysis.attack_type.toUpperCase()}` : `ML_ANOMALY_${type}`,
-                    severity: (analysis.severity || 'HIGH').toUpperCase(),
+                    severity: finalSeverity,
                     score: parseFloat(analysis.confidence || 0),
                     confidence: parseFloat(analysis.confidence || 0),
-                    explanation: analysis.explanation,
+                    explanation: analysis.explanation + escalationReason + (finalSeverity !== (analysis.severity || 'LOW').toUpperCase() && !escalationReason ? ` [FREQUENCY ESCALATION: ${eventRate} events/min]` : ''),
                     metadata: {
                         ...metadata,
                         metrics: highFidelityMetrics,
                         context: contextMetrics,
-                        ml_response: analysis
+                        ml_response: analysis,
+                        escalated: finalSeverity !== (analysis.severity || 'LOW').toUpperCase()
                     }
                 });
                 console.log(`[Processor] Alert creation result:`, alertResult.success ? 'Success' : 'Failed');

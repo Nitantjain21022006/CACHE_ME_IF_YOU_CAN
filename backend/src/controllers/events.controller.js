@@ -11,8 +11,8 @@ export const ingestEvent = async (req, res) => {
         });
     }
 
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
-    const enhancedMetadata = { ...metadata, ip };
+    const remoteIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
+    const enhancedMetadata = { ip: remoteIp, ...metadata };
 
     const result = await eventProcessor.processEvent({
         sector,

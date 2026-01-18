@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const API_URL = 'http://localhost:5001/api/events/ingest';
 const SECTOR = 'healthcare';
-const NUM_EVENTS = 5; // Low volume
+const NUM_EVENTS = 25; // Low volume
 
 async function runAttack() {
     console.log(`🚀 Starting SLOW Credential Stuffing Simulation on ${SECTOR} (Target: LOW Severity)...`);

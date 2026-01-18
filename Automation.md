@@ -1,4 +1,4 @@
-# 🧠 Task 2: Automated Resolution for LOW & MEDIUM Alerts
+# 🧠 Automated Resolution for LOW & MEDIUM Alerts
 
 ## 🎯 Objective
 
@@ -38,16 +38,6 @@ LIVE_THREAT
 
 ---
 
-## 🧱 Current System Context
-
-- The system already:
-- Classifies alerts as: `LOW | MEDIUM | HIGH`
-- Displays **Operational State** on the Dashboard
-- Has a working **manual resolution flow** for HIGH severity
-
-- We are adding:
-- An **automatic resolution pipeline** for LOW and MEDIUM only
-
 ---
 
 ## 🛠️ Implementation Requirements
@@ -78,63 +68,9 @@ Keep existing manual workflow untouched
 
 The Dashboard must:
 
-Briefly show LOW / MEDIUM as LIVE_THREAT (optional)
+Briefly show LOW / MEDIUM as LIVE_THREAT 
 
 Then automatically transition to:
 
 RESOLVED
 
-
-Architecture Rules
-
-❌ Do NOT change:
-
-ML models
-
-Severity logic
-
-Classification pipeline
-
-✅ Only modify:
-
-Alert lifecycle handling
-
-Alert state machine
-
-Backend resolution flow
-
-🧪 Acceptance Criteria
-
- Sending a LOW alert:
-
-Automatically becomes RESOLVED
-
-Dashboard shows RESOLVED
-
-resolution_type = "AUTOMATED"
-
- Sending a MEDIUM alert:
-
-Automatically becomes RESOLVED
-
-Dashboard shows RESOLVED
-
-resolution_type = "AUTOMATED"
-
- Sending a HIGH alert:
-
-Remains LIVE_THREAT
-
-Requires manual action
-
-Existing behavior remains unchanged
-
-🧾 Optional Enhancements
-
-Add log entry: "Auto-resolved LOW/MEDIUM severity alert"
-
-
-## Final Goal
-
-LOW and MEDIUM alerts should behave like self-healing incidents.
-Only HIGH alerts should behave like true incidents requiring human intervention.

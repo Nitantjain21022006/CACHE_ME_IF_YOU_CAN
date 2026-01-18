@@ -1,11 +1,3 @@
--- CYBER-RESILIENT INFRASTRUCTURE PLATFORM
--- DATABASE SCHEMA (POSTGRESQL / SUPABASE)
-
--- Optional: Reset database (USE WITH CAUTION)
--- DROP TABLE IF EXISTS alerts CASCADE;
--- DROP TABLE IF EXISTS events CASCADE;
--- DROP TABLE IF EXISTS otp_verifications CASCADE;
--- DROP TABLE IF EXISTS users CASCADE;
 
 -- 1. Users Table
 CREATE TABLE users (
@@ -121,5 +113,4 @@ CREATE POLICY "Allow public OTP" ON otp_verifications FOR ALL USING (true) WITH 
 CREATE POLICY "Allow public events" ON events FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow public alerts" ON alerts FOR ALL USING (true) WITH CHECK (true);
 
--- Migration: Add resolution_type column for existing databases (run this if the column doesn't exist)
--- ALTER TABLE alerts ADD COLUMN IF NOT EXISTS resolution_type TEXT;
+

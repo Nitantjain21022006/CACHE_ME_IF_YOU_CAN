@@ -51,6 +51,7 @@ CREATE TABLE alerts (
     metadata JSONB,
     status TEXT DEFAULT 'ACTIVE', -- 'ACTIVE', 'RESOLVED'
     resolution_notes TEXT,
+    resolution_type TEXT, -- 'AUTOMATED', 'MANUAL', NULL
     resolved_by UUID REFERENCES users(id),
     resolved_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -119,3 +120,6 @@ CREATE POLICY "Allow public OTP" ON otp_verifications FOR ALL USING (true) WITH 
 -- Events & Alerts: Allow public operations for sensors and dashboard
 CREATE POLICY "Allow public events" ON events FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow public alerts" ON alerts FOR ALL USING (true) WITH CHECK (true);
+
+-- Migration: Add resolution_type column for existing databases (run this if the column doesn't exist)
+-- ALTER TABLE alerts ADD COLUMN IF NOT EXISTS resolution_type TEXT;

@@ -31,12 +31,17 @@ export const analyzeMetrics = async (sector, metrics) => {
         let severity = (data.severity || 'LOW').toUpperCase();
         if (severity === 'CRITICAL') severity = 'HIGH';
 
+        // Ensure attack_type is one of the valid values: Normal, DDoS, Ransomware, MITM, Injection, Spoofing
+        const validAttackTypes = ['Normal', 'DDoS', 'Ransomware', 'MITM', 'Injection', 'Spoofing'];
+        const attackType = data.attack_type || 'Normal';
+        const finalAttackType = validAttackTypes.includes(attackType) ? attackType : 'Normal';
+
         return {
             is_anomaly: data.is_anomalous || false,
             score: data.confidence || 0,
             confidence: data.confidence || 0,
             severity: severity,
-            attack_type: data.attack_type || 'Unknown',
+            attack_type: finalAttackType,
             explanation: Array.isArray(data.reason) ? data.reason.join(', ') : (data.reason || 'Normal traffic patterns.')
         };
     } catch (error) {
@@ -47,7 +52,7 @@ export const analyzeMetrics = async (sector, metrics) => {
             score: 0,
             confidence: 1.0,
             severity: 'LOW',
-            attack_type: 'Unknown',
+            attack_type: 'Normal', // Default to Normal instead of Unknown on error
             explanation: `ML Analysis failed: ${errorDetail}`
         };
     }

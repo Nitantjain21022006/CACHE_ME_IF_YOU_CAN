@@ -16,7 +16,7 @@ import systemRoutes from './routes/system.routes.js';
 import settingsRoutes from './routes/settings.routes.js';
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 
 // Middleware
 app.use(express.json());

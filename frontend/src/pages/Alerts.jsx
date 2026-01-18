@@ -17,6 +17,23 @@ const Alerts = () => {
         setCurrentPage(1); // Reset to first page on filter change
     }, [filterSector, filterSeverity]);
 
+    // Auto-refresh alerts every 2 seconds to catch auto-resolved LOW/MEDIUM alerts
+    // This ensures RESOLVED status is shown after auto-resolution (5s for LOW, 10s for MEDIUM)
+    useEffect(() => {
+        const interval = setInterval(() => {
+            // Fetch fresh alerts to update status from ACTIVE to RESOLVED
+            api.get('/alerts', {
+                params: { sector: filterSector, severity: filterSeverity }
+            }).then(response => {
+                setAlerts(response.data.alerts);
+            }).catch(error => {
+                console.error('Error refreshing alerts:', error);
+            });
+        }, 2000);
+        
+        return () => clearInterval(interval);
+    }, [filterSector, filterSeverity]);
+
     const fetchAlerts = async () => {
         setLoading(true);
         try {
@@ -55,12 +72,12 @@ const Alerts = () => {
                         <select
                             value={filterSector}
                             onChange={(e) => setFilterSector(e.target.value)}
-                            className="appearance-none rounded-xl border border-white/5 bg-black/40 py-3 pl-12 pr-10 text-[10px] font-black uppercase tracking-widest text-[#00f3ff] outline-none focus:border-[#00f3ff]/50 transition-all cursor-pointer shadow-inner"
+                            className="appearance-none rounded-xl border border-white/5 bg-black/40 py-3 pl-12 pr-10 text-[10px] font-black uppercase tracking-widest text-[#ff003c] outline-none focus:border-[#ff003c]/50 transition-all cursor-pointer shadow-inner"
                         >
-                            <option value="">All Sectors</option>
-                            <option value="HEALTHCARE">Healthcare Grid</option>
-                            <option value="AGRICULTURE">Agro-Network</option>
-                            <option value="URBAN">Urban Nexus</option>
+                            <option value=""  className="bg-[#0a0a0a] text-gray-400"  >All Sectors</option>
+                            <option value="HEALTHCARE"  className="bg-[#0a0a0a] text-gray-400" >Healthcare Grid</option>
+                            <option value="AGRICULTURE"  className="bg-[#0a0a0a] text-gray-400" >Agro-Network</option>
+                            <option value="URBAN"  className="bg-[#0a0a0a] text-gray-400">Urban Nexus</option>
                         </select>
                         <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#00f3ff]/40 pointer-events-none" />
                     </div>

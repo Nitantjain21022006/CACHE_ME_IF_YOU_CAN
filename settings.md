@@ -62,4 +62,4 @@ This document details the current implementation of the Settings module, which s
 4. **Real-time Impact**: Next time `eventProcessor.service.js` runs, it fetches the *latest* thresholds from Redis/DB to categorize the anomaly score returned by the AI.
 
 ---
-*Status: IMPLEMENTED & FUNCTIONAL*
+

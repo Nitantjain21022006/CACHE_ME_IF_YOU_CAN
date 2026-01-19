@@ -92,3 +92,4 @@ VITE_API_URL=http://localhost:5001/api
 
 ---
 *Developed for Advanced Agentic Coding Challenge.*
+*Team Cache Me If You Can*

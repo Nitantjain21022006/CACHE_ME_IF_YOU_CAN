@@ -40,12 +40,3 @@ reason
 
 ---
 
-## 🚀 NEXT (OPTIONAL BUT POWERFUL)
-
-Reply with:
-1️⃣ **Add API key authentication**  
-2️⃣ **Dockerize this service**  
-3️⃣ **System architecture diagram (for PPT)**  
-4️⃣ **One-page explanation for judges**
-
-You’ve basically **completed PS-4 at a professional level** 👏

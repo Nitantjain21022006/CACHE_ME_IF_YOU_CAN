@@ -3,6 +3,8 @@ import joblib
 import numpy as np
 import pandas as pd
 import logging
+import os
+from flask_cors import CORS
 
 # ---------------- CATEGORY MAPS ----------------
 SECTOR_MAP = {
@@ -48,6 +50,7 @@ FEATURE_COLUMNS = [
 
 # ---------------- APP SETUP ----------------
 app = Flask(__name__)
+CORS(app)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -171,7 +174,6 @@ def analyze():
 
 # ---------------- RUN SERVER ----------------
 if __name__ == "__main__":
-    logging.info("Starting ML service on port 5000")
-    import os
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
-    # app.run(host="0.0.0.0", port=5000, debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    logging.info(f"Starting ML service on port {port}")
+    app.run(host="0.0.0.0", port=port)
